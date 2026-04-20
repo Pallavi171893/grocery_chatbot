@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshCart AI Grocery Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 500px;
+            margin: 30px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 0 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #2e7d32;
+            color: white;
+            text-align: center;
+            padding: 18px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #chatbox {
+            height: 420px;
+            overflow-y: auto;
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            background: #fafafa;
+        }
+
+        .message {
+            margin: 12px 0;
+            line-height: 1.5;
+        }
+
+        .user {
+            color: #1565c0;
+            font-weight: bold;
+        }
+
+        .bot {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+
+        .input-area {
+            display: flex;
+            padding: 12px;
+            background: #fff;
+        }
+
+        #userInput {
+            flex: 1;
+            padding: 12px;
+            font-size: 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            outline: none;
+        }
+
+        button {
+            margin-left: 10px;
+            padding: 12px 18px;
+            background: #2e7d32;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+
+        button:hover {
+            background: #1b5e20;
+        }
+
+        .quick-buttons {
+            padding: 10px 12px 15px 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            background: #fff;
+        }
+
+        .quick-buttons button {
+            margin: 0;
+            background: #e8f5e9;
+            color: #1b5e20;
+            border: 1px solid #c8e6c9;
+            padding: 8px 12px;
+            font-size: 13px;
+        }
+
+        .quick-buttons button:hover {
+            background: #c8e6c9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">FreshCart AI Grocery Chatbot</div>
+
+        <div id="chatbox">
+            <div class="message">
+                <span class="bot">Bot:</span>
+                Hi! Welcome to FreshCart 🛒<br>
+                Try:<br>
+                • show products<br>
+                • add milk bread eggs<br>
+                • cart<br>
+                • checkout
+            </div>
+        </div>
+
+        <div class="quick-buttons">
+            <button onclick="quickMessage('show products')">Show Products</button>
+            <button onclick="quickMessage('add milk bread eggs')">Add Milk Bread Eggs</button>
+            <button onclick="quickMessage('cart')">View Cart</button>
+            <button onclick="quickMessage('offers')">Offers</button>
+            <button onclick="quickMessage('faq')">FAQ</button>
+            <button onclick="quickMessage('checkout')">Checkout</button>
+        </div>
+
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Type your message here..." onkeypress="handleEnter(event)">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        async function sendMessage(messageFromButton = null) {
+            let inputField = document.getElementById("userInput");
+            let chatbox = document.getElementById("chatbox");
+            let message = messageFromButton || inputField.value.trim();
+
+            if (message === "") return;
+
+            chatbox.innerHTML += `
+                <div class="message">
+                    <span class="user">You:</span> ${message}
+                </div>
+            `;
+
+            try {
+                let response = await fetch("/chat", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                let data = await response.json();
+
+                chatbox.innerHTML += `
+                    <div class="message">
+                        <span class="bot">Bot:</span> ${data.reply}
+                    </div>
+                `;
+            } catch (error) {
+                chatbox.innerHTML += `
+                    <div class="message">
+                        <span class="bot">Bot:</span> Sorry, something went wrong. Please try again.
+                    </div>
+                `;
+            }
+
+            inputField.value = "";
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function quickMessage(text) {
+            sendMessage(text);
+        }
+
+        function handleEnter(event) {
+            if (event.key === "Enter") {
+                sendMessage();
+            }
+        }
+    </script>
+</body>
+</html>
