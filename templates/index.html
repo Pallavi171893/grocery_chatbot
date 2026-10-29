@@ -1,192 +1,461 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FreshCart AI Grocery Chatbot</title>
+    <title>FreshCart AI Grocery Assistant</title>
+
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background: #f4f7fb;
             margin: 0;
-            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f3f7f3;
+            color: #24332a;
+        }
+
+        header {
+            background: #198754;
+            color: white;
+            padding: 22px 15px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0 0 8px;
+        }
+
+        header p {
+            margin: 0;
         }
 
         .container {
-            width: 500px;
-            margin: 30px auto;
-            background: #ffffff;
-            border-radius: 12px;
-            box-shadow: 0 0 12px rgba(0,0,0,0.15);
-            overflow: hidden;
+            max-width: 1100px;
+            margin: 25px auto;
+            padding: 0 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
         }
 
-        .header {
-            background: #2e7d32;
-            color: white;
-            text-align: center;
-            padding: 18px;
-            font-size: 24px;
-            font-weight: bold;
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 14px;
+            box-shadow: 0 3px 12px #00000010;
+            min-width: 0;
         }
 
-        #chatbox {
-            height: 420px;
-            overflow-y: auto;
-            padding: 15px;
-            border-bottom: 1px solid #ddd;
-            background: #fafafa;
+        h2 {
+            margin-top: 0;
+            color: #198754;
         }
 
-        .message {
-            margin: 12px 0;
-            line-height: 1.5;
+        .products {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
         }
 
-        .user {
-            color: #1565c0;
-            font-weight: bold;
-        }
-
-        .bot {
-            color: #2e7d32;
-            font-weight: bold;
-        }
-
-        .input-area {
-            display: flex;
+        .product {
+            border: 1px solid #dce8df;
+            border-radius: 10px;
             padding: 12px;
-            background: #fff;
         }
 
-        #userInput {
-            flex: 1;
-            padding: 12px;
-            font-size: 15px;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            outline: none;
+        .product strong {
+            display: block;
+            margin-bottom: 7px;
         }
 
         button {
-            margin-left: 10px;
-            padding: 12px 18px;
-            background: #2e7d32;
+            background: #198754;
             color: white;
             border: none;
-            border-radius: 8px;
+            padding: 10px 13px;
+            border-radius: 7px;
             cursor: pointer;
-            font-size: 15px;
+            font-size: 14px;
         }
 
         button:hover {
-            background: #1b5e20;
+            background: #146c43;
         }
 
-        .quick-buttons {
-            padding: 10px 12px 15px 12px;
+        button.secondary {
+            background: #64756a;
+        }
+
+        button.danger {
+            background: #c0392b;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .bill-line {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .final-total {
+            border-top: 2px solid #198754;
+            padding-top: 12px;
+            font-size: 19px;
+            font-weight: bold;
+        }
+
+        .coupon-row {
+            display: flex;
+            gap: 8px;
+            margin: 15px 0;
+        }
+
+        input {
+            min-width: 0;
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #ccd7ce;
+            border-radius: 7px;
+            font-size: 15px;
+        }
+
+        .chat-box {
+            height: 280px;
+            overflow-y: auto;
+            border: 1px solid #e0e7e1;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 12px;
+            background: #fbfdfb;
+        }
+
+        .message {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .bot {
+            background: #e8f5ec;
+        }
+
+        .user {
+            background: #e8efff;
+            margin-left: 18%;
+        }
+
+        .chat-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .chat-row input {
+            flex: 1;
+        }
+
+        .quick-actions {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-            background: #fff;
+            gap: 7px;
+            margin-top: 12px;
         }
 
-        .quick-buttons button {
-            margin: 0;
-            background: #e8f5e9;
-            color: #1b5e20;
-            border: 1px solid #c8e6c9;
-            padding: 8px 12px;
+        .quick-actions button {
+            font-size: 12px;
+        }
+
+        .status {
             font-size: 13px;
+            color: #666;
+            margin-top: 10px;
         }
 
-        .quick-buttons button:hover {
-            background: #c8e6c9;
+        @media (max-width: 750px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">FreshCart AI Grocery Chatbot</div>
 
-        <div id="chatbox">
-            <div class="message">
-                <span class="bot">Bot:</span>
-                Hi! Welcome to FreshCart 🛒<br>
-                Try:<br>
-                • show products<br>
-                • add milk bread eggs<br>
-                • cart<br>
-                • checkout
+<body>
+<header>
+    <h1>🛒 FreshCart AI</h1>
+    <p>Your friendly AI grocery assistant</p>
+</header>
+
+<main class="container">
+    <section class="panel">
+        <h2>🥦 Available Groceries</h2>
+        <div id="products" class="products">Loading products...</div>
+    </section>
+
+    <section class="panel">
+        <h2>🧺 Your Shopping Cart</h2>
+        <div id="cartItems">Your cart is empty.</div>
+
+        <div class="bill-line">
+            <span>Subtotal</span>
+            <span id="subtotal">₹0.00</span>
+        </div>
+
+        <div class="bill-line">
+            <span>Discount</span>
+            <span id="discount">₹0.00</span>
+        </div>
+
+        <div class="bill-line">
+            <span>Delivery</span>
+            <span id="delivery">₹0.00</span>
+        </div>
+
+        <div class="bill-line final-total">
+            <span>Final Total</span>
+            <span id="total">₹0.00</span>
+        </div>
+
+        <div class="coupon-row">
+            <input id="couponInput" placeholder="Enter FRESH10">
+            <button onclick="applyCoupon()">Apply</button>
+        </div>
+
+        <button class="secondary" onclick="clearCart()">Clear Cart</button>
+        <button onclick="placeOrder()">Place Order</button>
+
+        <p class="status" id="couponMessage">
+            FRESH10 gives 10% off on bills of ₹200 or more.
+            Delivery is free on bills of ₹500 or more.
+        </p>
+    </section>
+
+    <section class="panel" style="grid-column: 1 / -1;">
+        <h2>💬 Chat with FreshCart AI</h2>
+
+        <div id="chatBox" class="chat-box">
+            <div class="message bot">
+                Hello! 👋 Welcome to FreshCart AI.
+
+                You can type grocery commands directly.
+                For example, try "add eggs" or "add 2 milk".
             </div>
         </div>
 
-        <div class="quick-buttons">
-            <button onclick="quickMessage('show products')">Show Products</button>
-            <button onclick="quickMessage('add milk bread eggs')">Add Milk Bread Eggs</button>
-            <button onclick="quickMessage('cart')">View Cart</button>
-            <button onclick="quickMessage('offers')">Offers</button>
-            <button onclick="quickMessage('faq')">FAQ</button>
-            <button onclick="quickMessage('checkout')">Checkout</button>
+        <form id="chatForm" class="chat-row">
+            <input id="chatInput"
+                   placeholder="Try: add 2 milk"
+                   autocomplete="off"
+                   required>
+            <button type="submit">Send</button>
+        </form>
+
+        <div class="quick-actions">
+            <button onclick="sendCommand('show products')">Show Products</button>
+            <button onclick="sendCommand('my cart')">My Cart</button>
+            <button onclick="sendCommand('show discount')">Discount</button>
+            <button onclick="sendCommand('calculate my bill')">Calculate Bill</button>
+            <button onclick="sendCommand('place order')">Place Order</button>
         </div>
 
-        <div class="input-area">
-            <input type="text" id="userInput" placeholder="Type your message here..." onkeypress="handleEnter(event)">
-            <button onclick="sendMessage()">Send</button>
-        </div>
-    </div>
+        <p class="status" id="connectionStatus">Connecting to FreshCart...</p>
+    </section>
+</main>
 
-    <script>
-        async function sendMessage(messageFromButton = null) {
-            let inputField = document.getElementById("userInput");
-            let chatbox = document.getElementById("chatbox");
-            let message = messageFromButton || inputField.value.trim();
+<script>
+    const productsElement = document.getElementById("products");
+    const cartElement = document.getElementById("cartItems");
+    const chatBox = document.getElementById("chatBox");
+    const connectionStatus = document.getElementById("connectionStatus");
 
-            if (message === "") return;
+    function money(value) {
+        return "₹" + Number(value || 0).toFixed(2);
+    }
 
-            chatbox.innerHTML += `
-                <div class="message">
-                    <span class="user">You:</span> ${message}
-                </div>
-            `;
-
-            try {
-                let response = await fetch("/chat", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ message: message })
-                });
-
-                let data = await response.json();
-
-                chatbox.innerHTML += `
-                    <div class="message">
-                        <span class="bot">Bot:</span> ${data.reply}
-                    </div>
-                `;
-            } catch (error) {
-                chatbox.innerHTML += `
-                    <div class="message">
-                        <span class="bot">Bot:</span> Sorry, something went wrong. Please try again.
-                    </div>
-                `;
+    async function api(url, options = {}) {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                ...(options.headers || {})
             }
+        });
 
-            inputField.value = "";
-            chatbox.scrollTop = chatbox.scrollHeight;
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.reply || "Request failed.");
         }
 
-        function quickMessage(text) {
-            sendMessage(text);
+        return data;
+    }
+
+    async function loadProducts() {
+        try {
+            const products = await api("/api/products");
+
+            productsElement.innerHTML = "";
+
+            products.forEach(product => {
+                const card = document.createElement("div");
+                card.className = "product";
+
+                const name = document.createElement("strong");
+                name.textContent = product.name;
+
+                const price = document.createElement("p");
+                price.textContent = money(product.price) + " per unit";
+
+                const button = document.createElement("button");
+                button.textContent = "Add to Cart";
+                button.onclick = () => sendCommand("add " + product.name);
+
+                card.append(name, price, button);
+                productsElement.appendChild(card);
+            });
+
+            connectionStatus.textContent = "Connected to Flask successfully.";
+        } catch (error) {
+            productsElement.textContent = "Could not load products.";
+            connectionStatus.textContent =
+                "Cannot connect to Flask. Start it using: python app.py";
+        }
+    }
+
+    function renderBill(bill) {
+        const items = bill.items || [];
+
+        cartElement.innerHTML = "";
+
+        if (items.length === 0) {
+            cartElement.textContent = "Your cart is empty.";
+        } else {
+            items.forEach(item => {
+                const row = document.createElement("div");
+                row.className = "cart-item";
+
+                const description = document.createElement("span");
+                description.textContent =
+                    `${item.name} × ${item.quantity} = ${money(item.total)}`;
+
+                const controls = document.createElement("span");
+
+                const removeButton = document.createElement("button");
+                removeButton.className = "danger";
+                removeButton.textContent = "Remove";
+                removeButton.onclick = () =>
+                    sendCommand("remove " + item.name);
+
+                controls.appendChild(removeButton);
+                row.append(description, controls);
+                cartElement.appendChild(row);
+            });
         }
 
-        function handleEnter(event) {
-            if (event.key === "Enter") {
-                sendMessage();
-            }
+        document.getElementById("subtotal").textContent = money(bill.subtotal);
+        document.getElementById("discount").textContent = money(bill.discount);
+        document.getElementById("delivery").textContent = money(bill.delivery);
+        document.getElementById("total").textContent = money(bill.total);
+    }
+
+    function addMessage(message, type) {
+        const element = document.createElement("div");
+        element.className = "message " + type;
+        element.textContent = message;
+        chatBox.appendChild(element);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    async function refreshBill() {
+        const bill = await api("/api/cart");
+        renderBill(bill);
+    }
+
+    async function sendCommand(command) {
+        if (!command || !command.trim()) return;
+
+        addMessage(command, "user");
+
+        try {
+            const data = await api("/api/chat", {
+                method: "POST",
+                body: JSON.stringify({ message: command })
+            });
+
+            addMessage(data.reply, "bot");
+            renderBill(data.bill);
+            connectionStatus.textContent = "Connected to Flask successfully.";
+        } catch (error) {
+            addMessage(
+                "Cannot connect to Flask. Make sure python app.py is running.",
+                "bot"
+            );
+            connectionStatus.textContent = error.message;
         }
-    </script>
+    }
+
+    document.getElementById("chatForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+
+        const input = document.getElementById("chatInput");
+        const command = input.value.trim();
+
+        if (command) {
+            input.value = "";
+            sendCommand(command);
+        }
+    });
+
+    async function applyCoupon() {
+        const coupon = document.getElementById("couponInput").value.trim();
+
+        try {
+            const data = await api("/api/coupon", {
+                method: "POST",
+                body: JSON.stringify({ coupon })
+            });
+
+            renderBill(data.bill);
+            document.getElementById("couponMessage").textContent = data.reply;
+            addMessage(data.reply, "bot");
+        } catch (error) {
+            document.getElementById("couponMessage").textContent = error.message;
+        }
+    }
+
+    async function clearCart() {
+        await sendCommand("clear cart");
+    }
+
+    async function placeOrder() {
+        await sendCommand("place order");
+    }
+
+    async function startApp() {
+        await loadProducts();
+
+        try {
+            await refreshBill();
+        } catch (error) {
+            connectionStatus.textContent =
+                "Cannot connect to Flask. Start it using: python app.py";
+        }
+    }
+
+    startApp();
+</script>
 </body>
 </html>

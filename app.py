@@ -1,233 +1,291 @@
-from flask import Flask, request, jsonify, render_template
-import smtplib
-from email.mime.text import MIMEText
+
+from flask import Flask, render_template, request, jsonify, session
+import re
 
 app = Flask(__name__)
+app.secret_key = "freshcart-demo-secret-change-this"
 
-# =========================================================
-# REPLACE THESE 3 VALUES WITH YOUR REAL DETAILS
-# =========================================================
-OWNER_EMAIL = "pallaviks1718@gmail.com"              # your email where order notifications will come
-GMAIL_SEND_FROM = "pallaviks1718@gmail.com"          # same Gmail can be used here
-GMAIL_APP_PASSWORD = "dbxd oxph qeqh zjdp"    # Gmail App Password from Google
-# =========================================================
-
-grocery_items = {
-    "milk": {"price": 30, "stock": 10},
-    "bread": {"price": 40, "stock": 15},
-    "eggs": {"price": 55, "stock": 20},
-    "rice": {"price": 70, "stock": 25},
-    "apple": {"price": 120, "stock": 18},
-    "banana": {"price": 45, "stock": 30},
-    "tomato": {"price": 35, "stock": 22}
+PRODUCTS = {
+    "Rice": 60,
+    "Wheat Flour": 45,
+    "Sugar": 45,
+    "Milk": 30,
+    "Bread": 40,
+    "Eggs": 7,
+    "Apples": 180,
+    "Bananas": 60,
+    "Tomatoes": 40,
+    "Potatoes": 35,
+    "Onions": 40,
+    "Cooking Oil": 150,
+    "Coffee": 120,
+    "Biscuits": 30,
+    "Cheese": 100
 }
 
-cart = {}
 
-user_state = {
-    "awaiting_order_type": False,
-    "awaiting_address": False,
-    "awaiting_contact": False,
-    "order_type": "",
-    "address": "",
-    "contact": ""
-}
+def get_cart():
+    return session.setdefault("cart", {})
 
-def calculate_total():
-    total = 0
-    for item, qty in cart.items():
-        total += grocery_items[item]["price"] * qty
-    return total
 
-def cart_items_text():
-    text = ""
-    for item, qty in cart.items():
-        text += f"{item.title()} x {qty}\n"
-    return text
+def get_bill():
+    cart = get_cart()
+    items = []
+    subtotal = 0
 
-def send_order_email():
-    try:
-        delivery_charge = 40 if user_state["order_type"] == "delivery" else 0
-        total = calculate_total() + delivery_charge
+    for name, quantity in cart.items():
+        if name in PRODUCTS and quantity > 0:
+            price = PRODUCTS[name]
+            item_total = price * quantity
+            subtotal += item_total
 
-        body = f"""
-New Grocery Order Received
+            items.append({
+                "name": name,
+                "quantity": quantity,
+                "price": price,
+                "total": item_total
+            })
 
-Order Type: {user_state['order_type'].title()}
-Contact Number: {user_state['contact']}
-Address: {user_state['address'] if user_state['address'] else 'Pickup from store'}
+    coupon = session.get("coupon", "")
+    discount = subtotal * 0.10 if (
+        coupon == "FRESH10" and subtotal >= 200
+    ) else 0
 
-Items Ordered:
-{cart_items_text()}
+    delivery = 0 if subtotal == 0 or subtotal >= 500 else 30
+    total = subtotal - discount + delivery
 
-Delivery Charge: ₹{delivery_charge}
-Total Amount: ₹{total}
-"""
+    return {
+        "items": items,
+        "subtotal": round(subtotal, 2),
+        "discount": round(discount, 2),
+        "delivery": round(delivery, 2),
+        "total": round(total, 2),
+        "coupon": coupon
+    }
 
-        msg = MIMEText(body)
-        msg["Subject"] = "New Grocery Order Received"
-        msg["From"] = GMAIL_SEND_FROM
-        msg["To"] = OWNER_EMAIL
 
-        server = smtplib.SMTP("smtp.gmail.com", 587)
-        server.starttls()
-        server.login(GMAIL_SEND_FROM, GMAIL_APP_PASSWORD)
-        server.sendmail(GMAIL_SEND_FROM, OWNER_EMAIL, msg.as_string())
-        server.quit()
+def find_product(text):
+    text = text.lower().strip()
 
-        return True
-    except Exception as e:
-        print("Email sending failed:", e)
-        return False
+    # Match longer product names first.
+    for name in sorted(PRODUCTS, key=len, reverse=True):
+        if name.lower() in text:
+            return name
+
+    # Support singular/plural variations.
+    aliases = {
+        "egg": "Eggs",
+        "apple": "Apples",
+        "banana": "Bananas",
+        "tomato": "Tomatoes",
+        "potato": "Potatoes",
+        "onion": "Onions",
+        "biscuit": "Biscuits"
+    }
+
+    for alias, name in aliases.items():
+        if re.search(r"\b" + re.escape(alias) + r"\b", text):
+            return name
+
+    return None
+
+
+def product_list():
+    return "\n".join(
+        f"{name}: ₹{price} per unit"
+        for name, price in PRODUCTS.items()
+    )
+
+
+def bill_text():
+    bill = get_bill()
+
+    if not bill["items"]:
+        return "Your cart is empty. Add groceries first."
+
+    lines = ["Your FreshCart Bill"]
+
+    for item in bill["items"]:
+        lines.append(
+            f"{item['name']} x {item['quantity']} = "
+            f"₹{item['total']:.2f}"
+        )
+
+    lines.extend([
+        f"Subtotal: ₹{bill['subtotal']:.2f}",
+        f"Discount: ₹{bill['discount']:.2f}",
+        f"Delivery: ₹{bill['delivery']:.2f}",
+        f"FINAL TOTAL: ₹{bill['total']:.2f}"
+    ])
+
+    return "\n".join(lines)
+
 
 @app.route("/")
 def home():
     return render_template("index.html")
 
-@app.route("/chat", methods=["POST"])
+
+@app.route("/api/products")
+def products():
+    return jsonify([
+        {"name": name, "price": price}
+        for name, price in PRODUCTS.items()
+    ])
+
+
+@app.route("/api/cart")
+def cart_details():
+    return jsonify(get_bill())
+
+
+@app.route("/api/coupon", methods=["POST"])
+def apply_coupon():
+    data = request.get_json(silent=True) or {}
+    code = str(data.get("coupon", "")).strip().upper()
+
+    if code != "FRESH10":
+        return jsonify({
+            "reply": "Invalid coupon. Try FRESH10.",
+            "bill": get_bill()
+        }), 400
+
+    session["coupon"] = "FRESH10"
+    bill = get_bill()
+
+    if bill["subtotal"] < 200:
+        reply = "FRESH10 applied! Your subtotal must reach ₹200 to get 10% off."
+    else:
+        reply = f"Coupon applied! You saved ₹{bill['discount']:.2f}."
+
+    return jsonify({"reply": reply, "bill": bill})
+
+
+@app.route("/api/chat", methods=["POST"])
 def chat():
-    original_message = request.json.get("message", "").strip()
-    user_message = original_message.lower()
+    data = request.get_json(silent=True) or {}
+    message = str(data.get("message", "")).strip()
+    text = message.lower()
 
-    # Step 1: Waiting for delivery/pickup choice
-    if user_state["awaiting_order_type"]:
-        if user_message == "1" or "delivery" in user_message:
-            user_state["order_type"] = "delivery"
-            user_state["awaiting_order_type"] = False
-            user_state["awaiting_address"] = True
-            return jsonify({"reply": "Delivery charge is ₹40.<br>Please enter your full delivery address."})
+    if not message:
+        return jsonify({"reply": "Please type a grocery command.",
+                        "bill": get_bill()})
 
-        elif user_message == "2" or "pickup" in user_message:
-            user_state["order_type"] = "pickup"
-            user_state["awaiting_order_type"] = False
-            user_state["awaiting_contact"] = True
-            return jsonify({"reply": "Please enter your contact number for pickup confirmation."})
-
-        else:
-            return jsonify({"reply": "Please choose:<br>1. Delivery<br>2. Pickup"})
-
-    # Step 2: Waiting for address
-    if user_state["awaiting_address"]:
-        user_state["address"] = original_message
-        user_state["awaiting_address"] = False
-        user_state["awaiting_contact"] = True
-        return jsonify({"reply": "Please enter your contact number."})
-
-    # Step 3: Waiting for contact number
-    if user_state["awaiting_contact"]:
-        user_state["contact"] = original_message
-        user_state["awaiting_contact"] = False
-
-        email_sent = send_order_email()
-        delivery_charge = 40 if user_state["order_type"] == "delivery" else 0
-        total = calculate_total() + delivery_charge
-
-        if user_state["order_type"] == "delivery":
-            reply = f"""
-Your order is placed successfully!<br>
-Order Type: Delivery<br>
-Delivery Charge: ₹40<br>
-Total Amount: ₹{total}<br>
-Address: {user_state['address']}<br>
-Contact Number: {user_state['contact']}<br>
-Your order will be delivered soon.
-"""
-        else:
-            reply = f"""
-Your order is placed successfully!<br>
-Order Type: Pickup<br>
-Total Amount: ₹{total}<br>
-Contact Number: {user_state['contact']}<br>
-Please collect your order from the store.
-"""
-
-        if email_sent:
-            reply += "<br>Shop owner has been notified by email."
-        else:
-            reply += "<br>Order placed, but email notification failed."
-
-        return jsonify({"reply": reply})
+    # Greetings
+    if text in ["hi", "hello", "hey", "good morning", "good evening"]:
+        reply = (
+            "Hello! Welcome to FreshCart AI!\n"
+            "Try 'show products', 'add eggs', 'my cart', "
+            "or 'calculate my bill'."
+        )
 
     # Show products
-    if "show products" in user_message or user_message == "products":
-        response = "Available products:<br>"
-        for item, details in grocery_items.items():
-            response += f"{item.title()} - ₹{details['price']} (Stock: {details['stock']})<br>"
-        return jsonify({"reply": response})
+    elif any(word in text for word in [
+        "show products", "list products", "list groceries",
+        "available groceries", "show groceries", "product list"
+    ]) or text == "list":
+        reply = "Available groceries:\n" + product_list()
 
-    # Add multiple common items
-    elif "add milk bread eggs" in user_message or "add milk, bread, eggs" in user_message:
-        total = 0
-        added_items = []
-        for item in ["milk", "bread", "eggs"]:
-            if grocery_items[item]["stock"] > 0:
-                cart[item] = cart.get(item, 0) + 1
-                total += grocery_items[item]["price"]
-                added_items.append(f"{item.title()} - ₹{grocery_items[item]['price']}")
-        response = "Added to cart:<br>" + "<br>".join(added_items)
-        response += f"<br><b>Total: ₹{total}</b>"
-        return jsonify({"reply": response})
+    # Coupon and discount
+    elif "discount" in text or "coupon" in text:
+        bill = get_bill()
+        reply = (
+            "Use coupon FRESH10 to get 10% off when your "
+            "subtotal is ₹200 or more.\n"
+            "Delivery is free on orders of ₹500 or more.\n"
+            f"Your current subtotal is ₹{bill['subtotal']:.2f}.\n"
+            "Enter FRESH10 in the coupon box and click Apply."
+        )
 
-    # Add single item
-    elif "add" in user_message:
-        for item in grocery_items:
-            if item in user_message:
-                cart[item] = cart.get(item, 0) + 1
-                return jsonify({"reply": f"{item.title()} added to cart. Price: ₹{grocery_items[item]['price']}"})
-        return jsonify({"reply": "Item not found. Try: milk, bread, eggs, rice, apple, banana, tomato"})
+    # Clear cart
+    elif any(phrase in text for phrase in [
+        "clear cart", "empty cart", "remove all", "clear my cart"
+    ]):
+        session["cart"] = {}
+        reply = "Your cart has been cleared."
 
-    # View cart
-    elif "cart" in user_message:
-        if not cart:
-            return jsonify({"reply": "Your cart is empty."})
-        total = 0
-        response = "Your cart:<br>"
-        for item, qty in cart.items():
-            subtotal = grocery_items[item]["price"] * qty
-            total += subtotal
-            response += f"{item.title()} x {qty} = ₹{subtotal}<br>"
-        response += f"<b>Total = ₹{total}</b>"
-        return jsonify({"reply": response})
+    # Remove an item
+    elif text.startswith(("remove ", "delete ", "take out ")):
+        name = find_product(text)
 
-    # Checkout
-    elif "checkout" in user_message:
-        if not cart:
-            return jsonify({"reply": "Your cart is empty. Add items first."})
-        user_state["awaiting_order_type"] = True
-        return jsonify({"reply": "Do you want:<br>1. Delivery<br>2. Pickup"})
+        if not name:
+            reply = "Please mention a valid product to remove."
+        else:
+            cart = get_cart()
+            if name in cart:
+                cart.pop(name)
+                session["cart"] = cart
+                reply = f"{name} removed from your cart."
+            else:
+                reply = f"{name} is not in your cart."
 
-    # FAQ
-    elif "faq" in user_message:
-        return jsonify({"reply": """
-FAQs:<br>
-1. Delivery charge is ₹40.<br>
-2. Free delivery above ₹500.<br>
-3. Same-day delivery is available.<br>
-4. Payment methods: UPI, Card, Cash on Delivery.
-"""})
+    # Add items, e.g. "add eggs" or "add 2 milk"
+    elif text.startswith(("add ", "buy ", "i want ", "get ")):
+        name = find_product(text)
 
-    # Offers
-    elif "offers" in user_message:
-        return jsonify({"reply": "Today's offers:<br>10% off on fruits<br>Buy 2 breads get 1 free<br>₹50 off above ₹999"})
+        if not name:
+            reply = "I couldn't find that product. Type 'show products'."
+        else:
+            match = re.search(r"\b(\d+)\b", text)
+            quantity = int(match.group(1)) if match else 1
 
-    # Track order
-    elif "track order" in user_message:
-        return jsonify({"reply": "Your order is being processed."})
+            if quantity < 1 or quantity > 100:
+                reply = "Please choose a quantity between 1 and 100."
+            else:
+                cart = get_cart()
+                cart[name] = cart.get(name, 0) + quantity
+                session["cart"] = cart
+                reply = (
+                    f"Adding {quantity} {name} at "
+                    f"₹{PRODUCTS[name]} each.\n"
+                    f"{name} added successfully!"
+                )
+
+    # Price query
+    elif "price" in text or "cost" in text:
+        name = find_product(text)
+        if name:
+            reply = f"{name} costs ₹{PRODUCTS[name]} per unit."
+        else:
+            reply = "Please mention a product, such as 'price of rice'."
+
+    # Cart and bill
+    elif any(word in text for word in [
+        "my cart", "show cart", "calculate my bill",
+        "calculate bill", "my bill", "total", "checkout",
+        "place order", "confirm order", "order now"
+    ]):
+        bill = get_bill()
+
+        if not bill["items"]:
+            reply = "Your cart is empty. Add groceries before checkout."
+        elif any(word in text for word in [
+            "place order", "confirm order", "order now", "checkout"
+        ]):
+            reply = (
+                "Order summary:\n" + bill_text() +
+                "\n\nThis is a demo. No payment has been taken "
+                "and no order has been saved."
+            )
+        else:
+            reply = "🧾 " + bill_text()
 
     else:
-        return jsonify({"reply": """
-I can help you with:<br>
-- show products<br>
-- add milk<br>
-- add bread<br>
-- add eggs<br>
-- add milk bread eggs<br>
-- cart<br>
-- checkout<br>
-- faq<br>
-- offers<br>
-- track order
-"""})
+        reply = (
+            "I'm FreshCart AI, your grocery assistant!\n"
+            "Try these commands:\n"
+            "• add eggs\n"
+            "• add 2 milk\n"
+            "• remove eggs\n"
+            "• show products\n"
+            "• price of rice\n"
+            "• calculate my bill\n"
+            "• show discount\n"
+            "• place order"
+        )
+
+    return jsonify({"reply": reply, "bill": get_bill()})
+
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True)
