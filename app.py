@@ -3,7 +3,9 @@ from flask import Flask, render_template, request, jsonify, session
 import re
 
 app = Flask(__name__)
-app.secret_key = "freshcart-demo-secret-change-this"
+import os
+
+app.secret_key = os.environ.get("SECRET_KEY", "local-demo-key")
 
 PRODUCTS = {
     "Rice": 60,
