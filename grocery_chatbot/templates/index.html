@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FreshCart Grocery Chatbot</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f7fb;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 450px;
+            margin: 40px auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px #ccc;
+            overflow: hidden;
+        }
+        .header {
+            background: green;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-size: 22px;
+        }
+        #chatbox {
+            height: 400px;
+            padding: 15px;
+            overflow-y: auto;
+            border-bottom: 1px solid #ddd;
+        }
+        .message {
+            margin: 10px 0;
+        }
+        .user {
+            color: blue;
+            font-weight: bold;
+        }
+        .bot {
+            color: green;
+            font-weight: bold;
+        }
+        .input-area {
+            display: flex;
+            padding: 10px;
+        }
+        #userInput {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 15px;
+            background: green;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background: darkgreen;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">FreshCart Grocery Chatbot</div>
+        <div id="chatbox">
+            <div class="message"><span class="bot">Bot:</span> Hi! Welcome to FreshCart. Type <b>show products</b> to begin.</div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="userInput" placeholder="Type message here..." />
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        async function sendMessage() {
+            let inputField = document.getElementById("userInput");
+            let message = inputField.value.trim();
+            let chatbox = document.getElementById("chatbox");
+
+            if (message === "") return;
+
+            chatbox.innerHTML += `<div class="message"><span class="user">You:</span> ${message}</div>`;
+
+            let response = await fetch("/chat", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ message: message })
+            });
+
+            let data = await response.json();
+            chatbox.innerHTML += `<div class="message"><span class="bot">Bot:</span> ${data.reply}</div>`;
+
+            inputField.value = "";
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
